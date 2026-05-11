@@ -1,4 +1,5 @@
 TropicalTech
+
 Chatbot de agendamento de viagens com integração de IA.
 
 **Tecnologias**
@@ -14,6 +15,7 @@ Chatbot de agendamento de viagens com integração de IA.
   - Envio de confirmação por email
 
 **Configuração para executar o chatbot**
+
   Ao longo do código principal "ChatBot1" estão comentados algumas dicas, 
   como os lugares onde devem ser inseridos as chaves para o uso da IA e também do envio do email.
 
