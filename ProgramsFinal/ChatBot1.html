@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot IA - Tropical Tech</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="TropicalTech.css">
+</head>
+<body>
+    
+    <i class="fas fa-bars menu-toggle-main" onclick="toggleSidebar()" title="Abrir/Fechar Menu"></i>
+    //informações da barra lateral
+    <aside id="sidebar">
+        <div class="sidebar-top">
+            <div class="sidebar-icons" style="justify-content: flex-end;">
+                <i class="fas fa-pen-to-square" onclick="novaConversa()" title="Nova Conversa"></i>
+            </div>
+            
+            <div class="new-chat-btn" onclick="novaConversa()">
+                <i class="fas fa-plus"></i> Nova Conversa
+            </div>
+
+            <div id="history-list" class="history-section"></div>
+        </div>
+        
+        <div class="sidebar-bottom-container">
+            <div id="config-menu" class="popup-menu">
+                <div class="popup-item"><i class="fas fa-user-cog"></i> Minha Conta</div>
+                <div class="popup-item"><i class="fas fa-star"></i> Mensagems Salvas</div>
+                <div class="popup-item"><i class="fas fa-shield-alt"></i> Privacidade</div>
+                <div class="popup-item"><i class="fas fa-user"></i> Falar com Suporte</div>
+                <div class="popup-item" style="border-top: 1px solid rgba(255,255,255,0.1); margin-top: 5px; padding-top: 15px;"><i class="fas fa-sign-out-alt"></i> Sair</div>
+            </div>
+
+            <div class="sidebar-bottom" onclick="toggleMenu('config-menu')">
+                <i class="fas fa-cog"></i> Configurações
+            </div>
+        </div>
+    </aside>
+
+    <main id="main-area">
+        <header>
+            <div class="title-pill">Tropical Tech</div>
+        </header>
+
+        <div id="chat-window">
+            <div class="bot-row">
+                <img src="Logo-TT.jpeg" alt="img do mascote" class="bot-avatar">
+                <div class="message bot">Olá! Sou Tico da Tropical Tech, como posso te ajudar hoje?</div>
+            </div>
+        </div>
+
+        <div id="input-area">
+            <button class="icon-btn"><i class="fas fa-plus"></i></button>
+            
+                <input type="text" id="user-input" placeholder="Pergunte ao Tico...">
+            
+                <div class="mode-selector-container">
+                    <div id="mode-menu" class="popup-menu">
+                        <div class="popup-item" onclick="selecionarModo('Rápido')"><i class="fas fa-bolt"></i> Rápido</div>
+                        <div class="popup-item" onclick="selecionarModo('Pensativo')"><i class="fas fa-brain"></i> Pensativo</div>
+                        <div class="popup-item" onclick="selecionarModo('Pro')"><i class="fas fa-star"></i> Pro</div>
+                    </div>
+
+                    <button class="send-btn" onclick="toggleMenu('mode-menu')">
+                        <span id="current-mode">Rápido</span> <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+
+            <button class="icon-btn" onclick="sendMessage()"><i class="fas fa-paper-plane"></i></button>
+        </div>
+    </main>
+
+    <script>
+        
+        // Variáveis globais 
+        let conversasSalvas = [];
+        let estadoAtual = 'idle';
+        let dadosReserva = {};
+
+
+        //Sidebar 
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('fechado');
+        }
+
+
+        //Menus pop-up 
+        function toggleMenu(menuId) {
+            const menu = document.getElementById(menuId);
+            if (menuId === 'config-menu') document.getElementById('mode-menu').classList.remove('show');
+            if (menuId === 'mode-menu') document.getElementById('config-menu').classList.remove('show');
+            menu.classList.toggle('show');
+        }
+
+        function selecionarModo(nomeDoModo) {
+            document.getElementById('current-mode').innerText = nomeDoModo;
+            document.getElementById('mode-menu').classList.remove('show');
+        }
+
+        document.addEventListener('click', function(event) {
+            const configContainer = document.querySelector('.sidebar-bottom-container');
+            const modeContainer = document.querySelector('.mode-selector-container');
+            if (configContainer && !configContainer.contains(event.target)) {
+                document.getElementById('config-menu').classList.remove('show');
+            }
+            if (modeContainer && !modeContainer.contains(event.target)) {
+                document.getElementById('mode-menu').classList.remove('show');
+            }
+         });
+
+
+        //Detectar interação
+        function detectarInteracao(texto) {
+            const t = texto.toLowerCase();
+            if (t.includes("hotel") || t.includes("hospedagem") || t.includes("viajar") || t.includes("viagem") || t.includes("Hotel") || t.includes("hoteis") || t.includes("Hoteis")) 
+                return "busca_hotel";
+            if (t.includes("cidade") || t.includes("pais") || t.includes("região") || t.includes("lugar"))
+                return "preferencia";
+            if (t.includes("preço") || t.includes("valor") || t.includes("barato") || t.includes("caro"))
+                return "precos";
+            if (t.includes("agendar") || t.includes("agendamento") || t.includes("reserva") || t.includes("reservar") || t.includes("marcar"))
+                return "agendamento";
+            if (t.includes("cancelar") || t.includes("desmarcar") || t.includes("desfazer") || t.includes("voltar"))
+                return "cancelamento";
+            if (t.includes("olá") || t.includes("oi") || t.includes("ola") || t.includes("bom dia") || t.includes("boa tarde") || t.includes("boa noite"))
+                return "saudacao";
+                    if (t.includes("pessoas") || t.includes("vagas") || t.includes("quartos") || t.includes("camas") || t.includes("grupos"))
+                return "participantes";
+            if (t.includes("tchau") || t.includes("obrigado") || t.includes("até mais"))
+                return "despedida";
+            return "desconhecido";
+        }
+
+
+        //Fluxo de agendamento em etapas
+        function processarFluxo(texto) {
+            if (estadoAtual === "cidade") {
+                dadosReserva.cidade = texto;
+                estadoAtual = "entrada";
+                return `Ótimo! ${texto} tem ótimos lugares para viajar. Qual é a data que você planeja viajar (check-In)? (ex: 01/01/2026)`;
+            }
+            if (estadoAtual === "entrada") {
+                dadosReserva.entrada = texto;
+                estadoAtual = "saida";
+                return "Entendido! E qual a data de saída/check-out?";
+            }
+            if (estadoAtual === "saida") {
+                dadosReserva.saida = texto;
+                estadoAtual = "email";
+                return "Perfeito!Agora me informe seu e-mail para receber a reserva:";
+            }
+            if (estadoAtual === "email") {
+                dadosReserva.email = texto;
+                estadoAtual = "confirmar";
+
+                return `Ótimo! Reserva para ${dadosReserva.cidade} de ${dadosReserva.entrada} a ${dadosReserva.saida}.
+                Email: ${dadosReserva.email}
+                Tudo certo? (sim/não)`;
+            }
+
+            if (estadoAtual === "confirmar") {
+                if (/sim|s|ok|confirmar/.test(texto.toLowerCase())) {
+
+                    enviarEmail(dadosReserva);
+
+                    estadoAtual = "idle";
+                    dadosReserva = {};
+
+                    return "Reserva confirmada! Você receberá um e-mail com os detalhes.";
+                }
+
+                estadoAtual = "idle";
+                dadosReserva = {};
+                return "Tudo bem! Pode começar novamente.";
+            }
+        }
+
+
+        //Chama a API
+
+        //Recomendo utilizar a chave gratuita do groq: https://console.groq.com/keys
+        async function chamarIA(textoUsuario) {
+            const API_KEY = "Coloque sua chave API";
+            try {
+                const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+                    method: "POST",
+                    headers:{
+                            "Content-Type": "application/json",
+                            "Authorization": "Bearer " + API_KEY
+                    },
+                    body: JSON.stringify({
+                        model: "llama-3.1-8b-instant",
+                        messages: [
+                            {
+                                role: "system",
+                                content: `Você é o Tico, assistente virtual da TropicalTech.
+
+                                Se o usuário pedir hotéis, responda APENAS JSON no formato:
+
+                                {
+                                    "tipo":"hoteis",
+                                    "cidade":"Nome da Cidade",
+                                    "hoteis":[
+                                        {
+                                            "nome":"Nome do Hotel",
+                                            "local":"Bairro ou endereço",
+                                            "preco_noite":250,
+                                            "foto":"https://picsum.photos/seed/hotel1/400/200",
+                                            "estrelas":4,
+                                            "comodidades":["Wi-Fi","Café"]
+                                        }
+                                    ]
+                                }
+
+                                Regras:
+                                - Use imagens que contenham somente casas ou construções
+                                - Gere exatamente 3 hotéis
+                                - Use exatamente os nomes dos campos acima
+                                - Não use "preco_medio"
+                                - Não escreva nada fora do JSON`
+                            },
+                            {
+                                role: "user",
+                                content: textoUsuario
+                            }
+                        ],
+                        temperature: 0.7
+                    })
+                });
+
+                if (!response.ok) {
+                    const erro = await response.text();
+
+                    if (response.status === 503 && tentativas > 0) {
+                        await new Promise(r => setTimeout(r, 1000));
+                        return chamarIA(textoUsuario, tentativas - 1);
+                    }
+
+                    throw new Error("Erro: " + response.status + " - " + erro);
+                }
+
+                const data = await response.json();
+
+                let resposta = data.choices?.[0]?.message?.content || "Sem resposta";
+
+                resposta = resposta.replace(/```json/g, '').replace(/```/g, '').trim();
+
+                return resposta;
+
+            } catch (erro) {
+                console.error("Erro IA:", erro);
+                return "Estou com instabilidade no momento. Tente novamente.";
+            }
+        }
+
+        // Monta os cards de hotel
+        function montarCards(jsonHoteis) {
+            const container = document.createElement('div');
+            container.className = 'hotels-container';
+
+            jsonHoteis.hoteis.forEach(hotel => {
+
+                const card = document.createElement('div');
+                card.className = 'hotel-card';
+
+                const estrelas = '★'.repeat(hotel.estrelas) + '☆'.repeat(5 - hotel.estrelas);
+
+                const comodidades = hotel.comodidades
+                .map(c => `<span class="tag-comodidade">${c}</span>`)
+                .join('');
+
+                card.innerHTML = `
+                <div class="hotel-img">
+                    <img src="${hotel.foto}" alt="${hotel.nome}">
+                    <div class="hotel-preco">R$ ${hotel.preco_noite}/noite</div>
+                </div>
+
+                <div class="hotel-info">
+                    <h3>${hotel.nome}</h3>
+                    <p class="hotel-local">📍 ${hotel.local}</p>
+                    <p class="hotel-stars">${estrelas}</p>
+
+                    <div class="hotel-tags">
+                        ${comodidades}
+                    </div>
+
+                    <button class="btn-reservar"
+                        onclick="reservarHotel('${hotel.nome}', '${jsonHoteis.cidade}')">
+                        Reservar agora
+                    </button>
+                </div>
+                `;
+
+                container.appendChild(card);
+            });
+
+            return container;
+        }
+
+        //Inicia reserva pelo card
+        function reservarHotel(nomeHotel, cidade) {
+            estadoAtual = "entrada";
+            dadosReserva.cidade = cidade;
+            dadosReserva.hotel = nomeHotel;
+
+            const chatWin = document.getElementById('chat-window');
+
+            const botRow = document.createElement('div');
+            botRow.className = 'bot-row';
+            botRow.innerHTML = `
+            <img src="Logo-TT.jpeg" class="bot-avatar">
+            <div class="message bot">
+                Ótima escolha! Vamos reservar o <strong>${nomeHotel}</strong> em ${cidade}.<br>
+                Qual é a data de entrada/check-In? (ex: 01/01/2026)
+            </div>
+            `;
+
+            chatWin.appendChild(botRow);
+            chatWin.scrollTop = chatWin.scrollHeight;
+        }
+
+
+        /*Exibe mensagem do bot no chat
+        função auxiliar para não repetir esse bloco 4 vezes*/
+        function exibirMensagemBot(conteudo, isHTML = false) {
+            const chatWin = document.getElementById('chat-window');
+            document.getElementById('digitando')?.remove();
+
+            const botRow = document.createElement('div');
+            botRow.className = 'bot-row';
+
+            const avatarImg = document.createElement('img');
+            avatarImg.src = 'Logo-TT.jpeg';
+            avatarImg.className = 'bot-avatar';
+            botRow.appendChild(avatarImg);
+
+            if (isHTML) {
+                // conteúdo já é um elemento DOM (como os cards)
+                botRow.appendChild(conteudo);
+            } else {
+                // conteúdo é texto simples
+                const balao = document.createElement('div');
+                balao.className = 'message bot';
+                balao.innerHTML = conteudo;
+                botRow.appendChild(balao);
+            }
+
+            chatWin.appendChild(botRow);
+            chatWin.scrollTop = chatWin.scrollHeight;
+        }
+
+
+        // enviar mensagem
+        async function sendMessage() {
+            const inputField = document.getElementById('user-input');
+            const chatWin = document.getElementById('chat-window');
+            const textoUsuario = inputField.value.trim();
+
+            if (textoUsuario === "") return;
+
+            // Exibe mensagem do usuário
+            const balaoUser = document.createElement('div');
+            balaoUser.className = 'message user';
+            balaoUser.innerHTML = textoUsuario;
+            chatWin.appendChild(balaoUser);
+            inputField.value = '';
+            chatWin.scrollTop = chatWin.scrollHeight;
+
+            // Exibe "Digitando..."
+            const botRowTemp = document.createElement('div');
+            botRowTemp.className = 'bot-row';
+            botRowTemp.id = 'digitando';
+            botRowTemp.innerHTML = `
+                <img src="Logo-TT.jpeg" class="bot-avatar">
+                <div class="message bot">Digitando...</div>
+            `;
+            chatWin.appendChild(botRowTemp);
+            chatWin.scrollTop = chatWin.scrollHeight;
+
+            //Se estiver no meio de um fluxo, continua o fluxo
+            if (estadoAtual !== "idle") {
+                const resposta = processarFluxo(textoUsuario);
+                exibirMensagemBot(resposta);
+                return;
+            }
+
+            //Detecta a intenção do usuário 
+            const interacao = detectarInteracao(textoUsuario);
+            if (interacao === "busca_hotel") { 
+                const respostaRaw = await chamarIA("Liste hotéis para: " + textoUsuario);
+    
+                let json = null;
+
+                try {
+                    json = JSON.parse(respostaRaw);
+                } catch {
+                    json = null;
+                }
+                if (json && json.tipo === "hoteis") {
+                    const cards = montarCards(json);
+                    exibirMensagemBot(cards, true);
+                } else {
+                    
+                    exibirMensagemBot(respostaRaw);
+                }
+                    const cards = montarCards(json);
+                    exibirMensagemBot(cards, true);
+                    return;
+            }
+                
+            /*respostas imediatas para intenções simples,
+             sem precisar chamar a IA (mais rápido e funciona offline)*/
+            const respostasRapidas = {
+                saudacao:     "Olá, como você está? Em que posso ser útil?",
+                cancelamento: "Qual reserva será desmarcada? Me informe o número ou o nome do hotel.",
+                participantes:"Quantas pessoas estão previstas para a viagem?",
+                precos:       null, // vai para a IA
+                preferencia:  null, // vai para a IA
+                busca_hotel:  null, // vai para a IA (retorna cards)
+                agendamento:  null, // inicia o fluxo
+                despedida:    "Foi um prazer ajudar! Boas viagens pelo mundo! 🦜",
+                desconhecido: null  // vai para a IA tentar responder
+            };
+
+            //intenção de agendamento: inicia o fluxo
+            if (interacao === "agendamento") {
+                estadoAtual = "cidade";
+                exibirMensagemBot("Ótimo, então vamos agendar sua viagem! Me diga primeiro a cidade!");
+                return;
+            }
+
+            // Intenções com resposta rápida (sem chamar a IA)
+            if (respostasRapidas[interacao] !== null && respostasRapidas[interacao] !== undefined) {
+                exibirMensagemBot(respostasRapidas[interacao]);
+                return;
+            }
+
+            // Todo o resto vai para a IA (busca_hotel, precos, preferencia, etc)
+            try {
+                const respostaRaw = await chamarIA(textoUsuario);
+
+                // Tenta interpretar como JSON de hotéis
+                try {
+                    const json = JSON.parse(respostaRaw);
+
+                    if (json.tipo === "hoteis") {
+                        // É JSON de hotéis: monta os cards
+                        const cards = montarCards(json);
+                        exibirMensagemBot(cards, true);
+                    } else {
+                        // É JSON mas não é hotéis: mostra como texto
+                        exibirMensagemBot(respostaRaw);
+                    }
+
+                } catch (e) {
+                    // Não é JSON: resposta normal de texto
+                    exibirMensagemBot(respostaRaw);
+                }
+
+            } catch (erro) {
+                //mostra o erro real no console para facilitar o diagnóstico
+                console.error("Erro ao chamar a IA:", erro);
+
+                document.getElementById('digitando')?.remove();
+
+                //MOCK TEMPORÁRIO
+                const respostaFake = `{
+                    "tipo":"hoteis",
+                    "cidade":"São Paulo",
+                    "hoteis":[
+                        {
+                            "nome":"Hotel Central",
+                            "local":"Centro",
+                            "preco_noite":200,
+                            "foto":"https://picsum.photos/seed/hotel1/400/200",
+                            "estrelas":4,
+                            "comodidades":["Wi-Fi","Café da manhã"]
+                        }
+                    ]
+                }`;
+
+                const json = JSON.parse(respostaFake);
+                const cards = montarCards(json);
+                exibirMensagemBot(cards, true);
+
+                console.error("Erro ao chamar a IA:", erro);
+                exibirMensagemBot("Ops! Não consegui me conectar. Verifique sua API Key e tente novamente.");
+            }
+        }
+
+
+        //Histórico
+        function carregarHistorico() {
+            const salvas = localStorage.getItem("conversas");
+            if (!salvas) return;
+
+            conversasSalvas = JSON.parse(salvas);
+            const historyList = document.getElementById('history-list');
+
+            conversasSalvas.forEach((conversa, id) => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = conversa;
+                const primeiraMsg = tempDiv.querySelector('.message.user');
+                let titulo = primeiraMsg ? primeiraMsg.innerText.substring(0, 22) + '...' : 'Conversa ' + (id + 1);
+
+                div.innerHTML = '<i class="far fa-message"></i> ' + titulo;
+                div.onclick = function() { abrirConversa(id); };
+                historyList.appendChild(div);
+            });
+        }
+
+        function novaConversa() {
+            const chatWin = document.getElementById('chat-window');
+            const historyList = document.getElementById('history-list');
+
+            const primeiraMsgUser = chatWin.querySelector('.message.user');
+
+            if (primeiraMsgUser) {
+                let tituloConversa = primeiraMsgUser.innerText;
+                if (tituloConversa.length > 22) {
+                    tituloConversa = tituloConversa.substring(0, 22) + '...';
+                }
+
+                const idDaConversa = conversasSalvas.length;
+                conversasSalvas.push(chatWin.innerHTML);
+                localStorage.setItem("conversas", JSON.stringify(conversasSalvas));
+
+                const itemSalvo = document.createElement('div');
+                itemSalvo.className = 'history-item';
+                itemSalvo.innerHTML = '<i class="far fa-message"></i> ' + tituloConversa;
+                itemSalvo.onclick = function() { abrirConversa(idDaConversa); };
+
+                historyList.insertBefore(itemSalvo, historyList.firstChild);
+            }
+
+            estadoAtual = "idle";
+            dadosReserva = {};
+
+            chatWin.innerHTML = `
+                <div class="bot-row">
+                    <img src="Logo-TT.jpeg" class="bot-avatar">
+                    <div class="message bot">Nova conversa iniciada. Qual será a nosssa próxima reserva?</div>
+                </div>
+            `;
+        }
+
+        function abrirConversa(id) {
+            const chatWin = document.getElementById('chat-window');
+            chatWin.innerHTML = conversasSalvas[id];
+            chatWin.scrollTop = chatWin.scrollHeight;
+        }
+
+
+        // Inicialização
+        document.addEventListener("DOMContentLoaded", () => {
+            carregarHistorico();
+
+            const inputField = document.getElementById('user-input');
+            if (inputField) {
+                inputField.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') sendMessage();
+                });
+            }
+        });
+
+        //vai salvar a reserva
+        function reservarHotel(nomeHotel, cidade) {
+            estadoAtual = "entrada";
+            dadosReserva.cidade = cidade;
+            dadosReserva.hotel = nomeHotel;
+
+            //Salva aqui
+            const reserva = {
+                hotel: nomeHotel,
+                cidade: cidade,
+                data: new Date().toISOString()
+            };
+
+            localStorage.setItem("reservaAtual", JSON.stringify(reserva));
+
+            console.log("Reserva salva:", reserva);
+
+            const chatWin = document.getElementById('chat-window');
+
+            const botRow = document.createElement('div');
+            botRow.className = 'bot-row';
+            botRow.innerHTML = `
+                <img src="Logo-TT.jpeg" class="bot-avatar">
+                <div class="message bot">
+                    Ótima escolha! Vamos reservar o <strong>${nomeHotel}</strong> em ${cidade}.<br>
+                    Qual é a data de entrada/check-In? (ex: 01/01/2026)
+                </div>
+            `;
+
+            chatWin.appendChild(botRow);
+            chatWin.scrollTop = chatWin.scrollHeight;
+        }
+        //Itens que serão enviados para o email
+        //Aconselho utilizar o site de config de email gratuito EmailJS: https://www.emailjs.com/
+        function enviarEmail(reserva) {
+            emailjs.send("Coloque seu SERVICE_ID", "Coloque seu TEMPLATE_ID", {
+                hotel: reserva.hotel,
+                cidade: reserva.cidade,
+                entrada: reserva.entrada,
+                saida: reserva.saida,
+                email: reserva.email
+            })
+            .then(() => console.log("Email enviado"))
+            .catch(err => console.error("Erro:", err));
+
+        }
+
+    </script>
+        <!-- EmailJS -->
+    <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
+    <script>
+        (function(){
+            emailjs.init("Coloque sua chave PUPLIC_KEY");
+        })();
+    </script>
+</body>
+</html>
